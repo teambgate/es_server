@@ -19,5 +19,6 @@
 void es_server_process_get_v1(struct es_server *p, int fd, struct sfs_object *obj);
 void es_server_process_post_v1(struct es_server *p, int fd, struct sfs_object *obj);
 void es_server_process_put_v1(struct es_server *p, int fd, struct sfs_object *obj);
+void es_server_process_delete_v1(struct es_server *p, int fd, struct sfs_object *obj);
 
 #endif

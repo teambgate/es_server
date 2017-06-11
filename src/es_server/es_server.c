@@ -332,6 +332,7 @@ struct es_server *es_server_alloc()
         map_set(p->delegates, qskey(&__cmd_get__), &(es_server_delegate){es_server_process_get});
         map_set(p->delegates, qskey(&__cmd_post__), &(es_server_delegate){es_server_process_post});
         map_set(p->delegates, qskey(&__cmd_put__), &(es_server_delegate){es_server_process_put});
+        map_set(p->delegates, qskey(&__cmd_delete__), &(es_server_delegate){es_server_process_delete});
 
         return p;
 }

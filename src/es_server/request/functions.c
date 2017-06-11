@@ -60,3 +60,4 @@ void func(struct es_server *p, int fd, struct sfs_object *obj)                  
 register_function(es_server_process_get);
 register_function(es_server_process_post);
 register_function(es_server_process_put);
+register_function(es_server_process_delete);
