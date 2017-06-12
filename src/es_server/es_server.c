@@ -160,8 +160,20 @@ send_client:;
         sfs_object_free(obj);
         cb->requested_len       = 0;
         cb->buff->len           = 0;
-        goto check;
 
+        debug("force client closed\n");
+
+        if(cb) {
+                __client_buffer_free(cb);
+                map_remove_key(ws->clients_datas, &fd, sizeof(fd));
+        }
+
+        shutdown(fd, SHUT_RDWR);
+        socket_close(fd);
+        file_descriptor_set_remove(ws->master, fd);
+        debug("force close connection\n\n");
+
+        // goto check;
 end:;
 }
 
@@ -267,7 +279,7 @@ void es_server_start(struct es_server *ws)
                                  */
                                 addrlen = sizeof(remoteaddr);
                                 newfd   = accept(ws->listener, (struct sockaddr *) &remoteaddr, &addrlen);
-                                if(newfd == -1) {
+                                if(newfd < 0) {
                                         perror("accept\n");
                                 } else {
                                         file_descriptor_set_add(ws->master, newfd);
