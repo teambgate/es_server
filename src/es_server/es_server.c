@@ -112,11 +112,11 @@ static void __es_server_check_old_and_close_client(struct es_server *ws, int fd)
         for_i(i, ws->fd_invalids->len) {
                 struct client_step cfd = array_get(ws->fd_invalids, struct client_step, i);
                 if(cfd.fd == fd) {
-                        if( cfd.step < ws->step) {
+                        // if( cfd.step < ws->step) {
                                 array_remove(ws->fd_invalids, i);
-                        } else {
-                                can_erase = 0;
-                        }
+                        // } else {
+                        //         can_erase = 0;
+                        // }
                         break;
                 }
         }
@@ -246,6 +246,9 @@ send_client:;
         struct smart_object *obj = smart_object_from_json(cb->buff->ptr, cb->buff->len, &counter);
         struct string *cmd = smart_object_get_string(obj, qskey(&__key_cmd__), SMART_GET_REPLACE_IF_WRONG_TYPE);
         es_server_delegate *delegate = map_get_pointer(ws->delegates, qskey(cmd));
+
+        cb->requested_len       = 0;
+        cb->buff->len           = 0;
         if(*delegate) {
                 pthread_mutex_lock(&ws->client_data_mutex);
                 array_reserve(ws->fd_mask, fd + 1);
@@ -262,8 +265,6 @@ send_client:;
 
         }
         smart_object_free(obj);
-        cb->requested_len       = 0;
-        cb->buff->len           = 0;
 
         // debug("force client closed\n");
         //
@@ -422,18 +423,16 @@ void es_server_start(struct es_server *ws)
                 /*
                  * close old sockets
                  */
-        // check_old_fd:;
                 pthread_mutex_lock(&ws->client_data_mutex);
                 int i;
                 for_i(i, ws->fd_invalids->len) {
                         struct client_step cfd = array_get(ws->fd_invalids, struct client_step, i);
-                        if(cfd.step < ws->step) {
+                        // if(cfd.step < ws->step) {
                                 array_remove(ws->fd_invalids, i);
                                 pthread_mutex_unlock(&ws->client_data_mutex);
                                 __es_server_close_client(ws, cfd.fd);
                                 i--;
-                        }
-                        // goto check_old_fd;
+                        // }
                 }
                 pthread_mutex_unlock(&ws->client_data_mutex);
         }
