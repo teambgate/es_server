@@ -151,13 +151,13 @@ send_client:;
         int counter = 0;
 
         debug("receive: %s\n", cb->buff->ptr);
-        struct sfs_object *obj = sfs_object_from_json(cb->buff->ptr, cb->buff->len, &counter);
-        struct string *cmd = sfs_object_get_string(obj, qskey(&__key_cmd__), SFS_GET_REPLACE_IF_WRONG_TYPE);
+        struct smart_object *obj = smart_object_from_json(cb->buff->ptr, cb->buff->len, &counter);
+        struct string *cmd = smart_object_get_string(obj, qskey(&__key_cmd__), SMART_GET_REPLACE_IF_WRONG_TYPE);
         es_server_delegate *delegate = map_get_pointer(ws->delegates, qskey(cmd));
         if(*delegate) {
                 (*delegate)(ws, fd, obj);
         }
-        sfs_object_free(obj);
+        smart_object_free(obj);
         cb->requested_len       = 0;
         cb->buff->len           = 0;
 
@@ -179,7 +179,7 @@ end:;
 
 void es_server_start(struct es_server *ws)
 {
-        u16 port        = sfs_object_get_short(ws->config, qlkey("service_port"), SFS_GET_REPLACE_IF_WRONG_TYPE);
+        u16 port        = smart_object_get_short(ws->config, qlkey("service_port"), SMART_GET_REPLACE_IF_WRONG_TYPE);
 
 #if OS == WINDOWS
         WSADATA wsaData;
@@ -338,7 +338,7 @@ struct es_server *es_server_alloc()
         /*
          * load config
          */
-        p->config               = sfs_object_from_json_file("res/config.json", FILE_INNER);
+        p->config               = smart_object_from_json_file("res/config.json", FILE_INNER);
 
         p->delegates            = map_alloc(sizeof(es_server_delegate));
         map_set(p->delegates, qskey(&__cmd_get__), &(es_server_delegate){es_server_process_get});
@@ -354,7 +354,7 @@ void es_server_free(struct es_server *p)
         file_descriptor_set_free(p->master);
         file_descriptor_set_free(p->incomming);
 
-        sfs_object_free(p->config);
+        smart_object_free(p->config);
         map_free(p->delegates);
         map_deep_free(p->clients_datas, struct client_buffer *, __client_buffer_free);
 

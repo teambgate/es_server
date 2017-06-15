@@ -24,29 +24,29 @@
 #include <common/key.h>
 #include <common/error.h>
 
-static void __response_invalid_version(struct es_server *p, int fd, struct sfs_object *obj)
+static void __response_invalid_version(struct es_server *p, int fd, struct smart_object *obj)
 {
-        struct sfs_object *res = sfs_object_alloc();
-        sfs_object_set_long(res, qskey(&__key_request_id__), sfs_object_get_long(obj, qskey(&__key_request_id__), 0));
-        sfs_object_set_bool(res, qskey(&__key_result__), 0);
-        sfs_object_set_string(res, qskey(&__key_message__), qlkey(""));
-        sfs_object_set_long(res, qskey(&__key_error__), ERROR_VERSION_INVALID);
+        struct smart_object *res = smart_object_alloc();
+        smart_object_set_long(res, qskey(&__key_request_id__), smart_object_get_long(obj, qskey(&__key_request_id__), 0));
+        smart_object_set_bool(res, qskey(&__key_result__), 0);
+        smart_object_set_string(res, qskey(&__key_message__), qlkey(""));
+        smart_object_set_long(res, qskey(&__key_error__), ERROR_VERSION_INVALID);
 
-        struct string *d        = sfs_object_to_json(res);
+        struct string *d        = smart_object_to_json(res);
         es_server_send_to_client(p, fd, d->ptr, d->len);
         string_free(d);
-        sfs_object_free(res);
+        smart_object_free(res);
 }
 
 #define register_function(func)                                                                 \
-void func(struct es_server *p, int fd, struct sfs_object *obj)                                 \
+void func(struct es_server *p, int fd, struct smart_object *obj)                                 \
 {                                                                                               \
         if(!map_has_key(obj->data, qskey(&__key_version__))) {                                  \
                 __response_invalid_version(p, fd, obj);                                         \
                 return;                                                                         \
         }                                                                                       \
                                                                                                 \
-        struct string *version = sfs_object_get_string(obj, qskey(&__key_version__), 0);        \
+        struct string *version = smart_object_get_string(obj, qskey(&__key_version__), 0);        \
                                                                                                 \
         if(strcmp(version->ptr, "1") == 0) {                                                    \
                 func##_v1(p, fd, obj);                                                          \

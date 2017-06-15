@@ -19,7 +19,7 @@
 
 struct es_server;
 
-typedef void(*es_server_delegate)(struct es_server *, int fd, struct sfs_object *);
+typedef void(*es_server_delegate)(struct es_server *, int fd, struct smart_object *);
 
 struct client_buffer {
         struct string   *buff;
@@ -32,7 +32,7 @@ struct es_server {
         int                             fdmax;
         int                             listener;
 
-        struct sfs_object               *config;
+        struct smart_object               *config;
         struct map                      *delegates;
         struct map                      *clients_datas;
 };

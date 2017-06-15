@@ -44,61 +44,61 @@
 
 struct write_data {
         struct es_server *p;
-        struct sfs_object *obj;
+        struct smart_object *obj;
         int fd;
 };
 
-static void __response_invalid_data(struct es_server *p, int fd, struct sfs_object *obj, char *msg, size_t msg_len)
+static void __response_invalid_data(struct es_server *p, int fd, struct smart_object *obj, char *msg, size_t msg_len)
 {
-        struct sfs_object *res = sfs_object_alloc();
-        sfs_object_set_long(res, qskey(&__key_request_id__), sfs_object_get_long(obj, qskey(&__key_request_id__), 0));
-        sfs_object_set_bool(res, qskey(&__key_result__), 0);
-        sfs_object_set_string(res, qskey(&__key_message__), msg, msg_len);
-        sfs_object_set_long(res, qskey(&__key_error__), ERROR_DATA_INVALID);
+        struct smart_object *res = smart_object_alloc();
+        smart_object_set_long(res, qskey(&__key_request_id__), smart_object_get_long(obj, qskey(&__key_request_id__), 0));
+        smart_object_set_bool(res, qskey(&__key_result__), 0);
+        smart_object_set_string(res, qskey(&__key_message__), msg, msg_len);
+        smart_object_set_long(res, qskey(&__key_error__), ERROR_DATA_INVALID);
 
-        struct string *d        = sfs_object_to_json(res);
+        struct string *d        = smart_object_to_json(res);
         es_server_send_to_client(p, fd, d->ptr, d->len);
         string_free(d);
-        sfs_object_free(res);
+        smart_object_free(res);
 }
 
 static size_t func(void *ptr, size_t size, size_t nmemb, struct write_data *data)
 {
         struct es_server *p = data->p;
-        struct sfs_object *obj = data->obj;
+        struct smart_object *obj = data->obj;
         int fd = data->fd;
 
         size_t realsize = size * nmemb;
 
-        struct sfs_object *res = sfs_object_alloc();
-        sfs_object_set_long(res, qskey(&__key_request_id__), sfs_object_get_long(obj, qskey(&__key_request_id__), 0));
-        sfs_object_set_bool(res, qskey(&__key_result__), 1);
-        sfs_object_set_string(res, qskey(&__key_message__), qlkey("success"));
+        struct smart_object *res = smart_object_alloc();
+        smart_object_set_long(res, qskey(&__key_request_id__), smart_object_get_long(obj, qskey(&__key_request_id__), 0));
+        smart_object_set_bool(res, qskey(&__key_result__), 1);
+        smart_object_set_string(res, qskey(&__key_message__), qlkey("success"));
 
         int counter = 0;
-        struct sfs_object *result = sfs_object_from_json(ptr, realsize, &counter);
-        sfs_object_set_object(res, qskey(&__key_data__), result);
+        struct smart_object *result = smart_object_from_json(ptr, realsize, &counter);
+        smart_object_set_object(res, qskey(&__key_data__), result);
 
-        struct string *d        = sfs_object_to_json(res);
+        struct string *d        = smart_object_to_json(res);
         es_server_send_to_client(p, fd, d->ptr, d->len);
         string_free(d);
-        sfs_object_free(res);
+        smart_object_free(res);
 
         return size * nmemb;
 }
 
-void es_server_process_get_v1(struct es_server *p, int fd, struct sfs_object *obj)
+void es_server_process_get_v1(struct es_server *p, int fd, struct smart_object *obj)
 {
-        struct string *pass             = sfs_object_get_string(obj, qskey(&__key_pass__), SFS_GET_REPLACE_IF_WRONG_TYPE);
-        struct string *es_server_pass   = sfs_object_get_string(p->config, qskey(&__key_pass__), SFS_GET_REPLACE_IF_WRONG_TYPE);
+        struct string *pass             = smart_object_get_string(obj, qskey(&__key_pass__), SMART_GET_REPLACE_IF_WRONG_TYPE);
+        struct string *es_server_pass   = smart_object_get_string(p->config, qskey(&__key_pass__), SMART_GET_REPLACE_IF_WRONG_TYPE);
 
         if(strcmp(es_server_pass->ptr, pass->ptr) != 0) {
                 __response_invalid_data(p, fd, obj, qlkey("wrong password"));
                 goto end;
         }
 
-        struct string *path             = sfs_object_get_string(obj, qskey(&__key_path__), SFS_GET_REPLACE_IF_WRONG_TYPE);
-        struct sfs_object *data         = sfs_object_get_object(obj, qskey(&__key_data__), SFS_GET_REPLACE_IF_WRONG_TYPE);
+        struct string *path             = smart_object_get_string(obj, qskey(&__key_path__), SMART_GET_REPLACE_IF_WRONG_TYPE);
+        struct smart_object *data         = smart_object_get_object(obj, qskey(&__key_data__), SMART_GET_REPLACE_IF_WRONG_TYPE);
 
         CURL *curl;
         CURLcode res;
@@ -121,7 +121,7 @@ void es_server_process_get_v1(struct es_server *p, int fd, struct sfs_object *ob
                 wdata.fd = fd;
                 curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&wdata);
 
-                temp = sfs_object_to_json(data);
+                temp = smart_object_to_json(data);
 
                 struct curl_slist *headers = NULL;
                 curl_slist_append(headers, "Accept: application/json");

@@ -24,9 +24,9 @@ void es_server_free(struct es_server *p);
 
 void es_server_send_to_client(struct es_server *p, int fd, char *ptr, int len);
 
-void es_server_process_get(struct es_server *p, int fd, struct sfs_object *obj);
-void es_server_process_post(struct es_server *p, int fd, struct sfs_object *obj);
-void es_server_process_put(struct es_server *p, int fd, struct sfs_object *obj);
-void es_server_process_delete(struct es_server *p, int fd, struct sfs_object *obj);
+void es_server_process_get(struct es_server *p, int fd, struct smart_object *obj);
+void es_server_process_post(struct es_server *p, int fd, struct smart_object *obj);
+void es_server_process_put(struct es_server *p, int fd, struct smart_object *obj);
+void es_server_process_delete(struct es_server *p, int fd, struct smart_object *obj);
 
 #endif
