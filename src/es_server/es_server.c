@@ -74,8 +74,89 @@ static void *get_in_addr(struct sockaddr *sa)
         return &(((struct sockaddr_in6 *)sa)->sin6_addr);
 }
 
-void es_server_send_to_client(struct es_server *p, int fd, char *ptr, int len)
+static void __es_server_close_client(struct es_server *p, int fd)
 {
+        debug("force client closed\n");
+
+        pthread_mutex_lock(&p->client_data_mutex);
+
+        /*
+         * increase mask to prohibit current pending packets sending to this fd
+         */
+        array_reserve(p->fd_mask, fd + 1);
+        u32 current_mask = array_get(p->fd_mask, u32, fd);
+        current_mask++;
+        array_set(p->fd_mask, fd, &current_mask);
+
+        struct client_buffer *cb = map_get(p->clients_datas, struct client_buffer *, qpkey(fd));
+        if(cb) {
+                __client_buffer_free(cb);
+                map_remove_key(p->clients_datas, &fd, sizeof(fd));
+        }
+        shutdown(fd, SHUT_RDWR);
+        socket_close(fd);
+        file_descriptor_set_remove(p->master, fd);
+        pthread_mutex_unlock(&p->client_data_mutex);
+
+        debug("force close connection\n\n");
+}
+
+static void __es_server_check_old_and_close_client(struct es_server *ws, int fd)
+{
+        int can_erase = 1;
+        /*
+         * make sure fd will be closed once
+         */
+        pthread_mutex_lock(&ws->client_data_mutex);
+        int i;
+        for_i(i, ws->fd_invalids->len) {
+                struct client_step cfd = array_get(ws->fd_invalids, struct client_step, i);
+                if(cfd.fd == fd) {
+                        if( cfd.step < ws->step) {
+                                array_remove(ws->fd_invalids, i);
+                        } else {
+                                can_erase = 0;
+                        }
+                        break;
+                }
+        }
+        pthread_mutex_unlock(&ws->client_data_mutex);
+
+        if(can_erase) __es_server_close_client(ws, fd);
+}
+
+static void __es_server_push_close(struct es_server *p, int fd)
+{
+        pthread_mutex_lock(&p->client_data_mutex);
+
+        array_reserve(p->fd_mask, fd + 1);
+        u32 current_mask = array_get(p->fd_mask, u32, fd);
+        current_mask++;
+        array_set(p->fd_mask, fd, &current_mask);
+
+        struct client_step step;
+        step.fd = fd;
+        step.step = p->step;
+
+        array_push(p->fd_invalids, &step);
+        pthread_mutex_unlock(&p->client_data_mutex);
+}
+
+void es_server_send_to_client(struct es_server *p, int fd, u32 mask, char *ptr, int len)
+{
+        pthread_mutex_lock(&p->client_data_mutex);
+        array_reserve(p->fd_mask, fd + 1);
+        u32 current_mask = array_get(p->fd_mask, u32, fd);
+        pthread_mutex_unlock(&p->client_data_mutex);
+
+        if(current_mask != mask) {
+                /*
+                 * prohibit sending to fd
+                 */
+                debug("prohibit\n");
+                return;
+        }
+
         debug("send client %s\n", ptr);
         int bytes_send          = 0;
         int slen                = len;
@@ -96,16 +177,27 @@ void es_server_send_to_client(struct es_server *p, int fd, char *ptr, int len)
                 len -= bytes_send;
                 ptr += bytes_send;
         }
+
+        {
+                /*
+                 * push fd to invalids array
+                 * if we close fd after calling select then
+                 * it will block infinitely
+                 */
+                __es_server_push_close(p, fd);
+        }
 }
 
 static void __es_server_handle_msg(struct es_server *ws, u32 fd, char* msg, size_t msg_len)
 {
+        pthread_mutex_lock(&ws->client_data_mutex);
         if( ! map_has_key(ws->clients_datas, qpkey(fd))) {
                 struct client_buffer *cb        = __client_buffer_alloc();
                 map_set(ws->clients_datas, qpkey(fd), &cb);
         }
 
         struct client_buffer *cb = map_get(ws->clients_datas, struct client_buffer *, qpkey(fd));
+        pthread_mutex_unlock(&ws->client_data_mutex);
         int amount;
 check:;
         if(msg_len == 0) goto end;
@@ -155,23 +247,35 @@ send_client:;
         struct string *cmd = smart_object_get_string(obj, qskey(&__key_cmd__), SMART_GET_REPLACE_IF_WRONG_TYPE);
         es_server_delegate *delegate = map_get_pointer(ws->delegates, qskey(cmd));
         if(*delegate) {
-                (*delegate)(ws, fd, obj);
+                pthread_mutex_lock(&ws->client_data_mutex);
+                array_reserve(ws->fd_mask, fd + 1);
+                u32 mask = array_get(ws->fd_mask, u32, fd);
+                pthread_mutex_unlock(&ws->client_data_mutex);
+
+                (*delegate)(ws, fd, mask, obj);
+        } else {
+                if(strcmp(cb->buff->ptr, "0") == 0) {
+                        __es_server_check_old_and_close_client(ws, fd);
+                } else {
+                        __es_server_push_close(ws, fd);
+                }
+
         }
         smart_object_free(obj);
         cb->requested_len       = 0;
         cb->buff->len           = 0;
 
-        debug("force client closed\n");
-
-        if(cb) {
-                __client_buffer_free(cb);
-                map_remove_key(ws->clients_datas, &fd, sizeof(fd));
-        }
-
-        shutdown(fd, SHUT_RDWR);
-        socket_close(fd);
-        file_descriptor_set_remove(ws->master, fd);
-        debug("force close connection\n\n");
+        // debug("force client closed\n");
+        //
+        // if(cb) {
+        //         __client_buffer_free(cb);
+        //         map_remove_key(ws->clients_datas, &fd, sizeof(fd));
+        // }
+        //
+        // shutdown(fd, SHUT_RDWR);
+        // socket_close(fd);
+        // file_descriptor_set_remove(ws->master, fd);
+        // debug("force close connection\n\n");
 
         // goto check;
 end:;
@@ -256,11 +360,16 @@ void es_server_start(struct es_server *ws)
 #define MAX_RECV_BUF_LEN 99999
         char *recvbuf           = smalloc(sizeof(char) * MAX_RECV_BUF_LEN);
         int nbytes              = 0;
+        ws->step                = 0;
         while(1) {
                 /*
                  * listen for next incomming sockets
                  */
-                file_descriptor_set_assign(ws->incomming, ws->master);
+                 pthread_mutex_lock(&ws->client_data_mutex);
+                 file_descriptor_set_assign(ws->incomming, ws->master);
+                 ws->step++;
+                 pthread_mutex_unlock(&ws->client_data_mutex);
+
                 if(select(ws->fdmax + 1, ws->incomming->set->ptr, NULL, NULL, NULL) == -1) {
                         perror("select");
                         break;
@@ -282,36 +391,51 @@ void es_server_start(struct es_server *ws)
                                 if(newfd < 0) {
                                         perror("accept\n");
                                 } else {
+                                        pthread_mutex_lock(&ws->client_data_mutex);
+
                                         file_descriptor_set_add(ws->master, newfd);
                                         ws->fdmax = MAX(ws->fdmax, newfd);
                                         debug("new connection from %s on socket %d\n",
                                                 inet_ntop(remoteaddr.ss_family,
                                                         get_in_addr((struct sockaddr *)&remoteaddr),
                                                         remoteIP, INET6_ADDRSTRLEN), newfd);
+                                        array_reserve(ws->fd_mask, newfd + 1);
+                                        u32 mask = array_get(ws->fd_mask, u32, newfd);
+                                        mask++;
+                                        array_set(ws->fd_mask, newfd, &mask);
+
+                                        pthread_mutex_unlock(&ws->client_data_mutex);
                                 }
                         } else {
                                 /*
                                  * receive client request
                                  */
-                                nbytes = recv(*fd, recvbuf, MAX_RECV_BUF_LEN, 0);
-                                if(nbytes <= 0) {
-                                        debug("client closed\n");
-
-                                        struct client_buffer *cb = map_get(ws->clients_datas, struct client_buffer *, fd, sizeof(*fd));
-                                        if(cb) {
-                                                __client_buffer_free(cb);
-                                                map_remove_key(ws->clients_datas, fd, sizeof(*fd));
-                                        }
-
-                                        shutdown(*fd, SHUT_RDWR);
-                                        socket_close(*fd);
-                                        file_descriptor_set_remove(ws->master, *fd);
-                                        debug("close connection\n\n");
-                                } else {
-                                        __es_server_handle_msg(ws, *fd, recvbuf, nbytes);
-                                }
+                                 nbytes = recv(*fd, recvbuf, MAX_RECV_BUF_LEN, 0);
+                                 if(nbytes <= 0) {
+                                         __es_server_check_old_and_close_client(ws, *fd);
+                                 } else {
+                                         __es_server_handle_msg(ws, *fd, recvbuf, nbytes);
+                                 }
                         }
                 }
+
+                /*
+                 * close old sockets
+                 */
+        // check_old_fd:;
+                pthread_mutex_lock(&ws->client_data_mutex);
+                int i;
+                for_i(i, ws->fd_invalids->len) {
+                        struct client_step cfd = array_get(ws->fd_invalids, struct client_step, i);
+                        if(cfd.step < ws->step) {
+                                array_remove(ws->fd_invalids, i);
+                                pthread_mutex_unlock(&ws->client_data_mutex);
+                                __es_server_close_client(ws, cfd.fd);
+                                i--;
+                        }
+                        // goto check_old_fd;
+                }
+                pthread_mutex_unlock(&ws->client_data_mutex);
         }
         finish:;
 #if OS == WINDOWS
@@ -335,6 +459,11 @@ struct es_server *es_server_alloc()
         p->listener             = 0;
         p->clients_datas        = map_alloc(sizeof(struct client_buffer *));
 
+        p->fd_mask              = array_alloc(sizeof(u32), ORDERED);
+        p->fd_invalids          = array_alloc(sizeof(struct client_step), NO_ORDERED);
+
+        pthread_mutex_init(&p->client_data_mutex, NULL);
+
         /*
          * load config
          */
@@ -354,9 +483,17 @@ void es_server_free(struct es_server *p)
         file_descriptor_set_free(p->master);
         file_descriptor_set_free(p->incomming);
 
+        array_free(p->fd_mask);
+        array_free(p->fd_invalids);
+
+
         smart_object_free(p->config);
         map_free(p->delegates);
+
+        pthread_mutex_lock(&p->client_data_mutex);
         map_deep_free(p->clients_datas, struct client_buffer *, __client_buffer_free);
+        pthread_mutex_unlock(&p->client_data_mutex);
+        pthread_mutex_destroy(&p->client_data_mutex);
 
         sfree(p);
 }

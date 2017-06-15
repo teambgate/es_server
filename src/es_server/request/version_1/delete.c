@@ -46,9 +46,10 @@ struct write_data {
         struct es_server *p;
         struct smart_object *obj;
         int fd;
+        u32 mask;
 };
 
-static void __response_invalid_data(struct es_server *p, int fd, struct smart_object *obj, char *msg, size_t msg_len)
+static void __response_invalid_data(struct es_server *p, int fd, u32 mask, struct smart_object *obj, char *msg, size_t msg_len)
 {
         struct smart_object *res = smart_object_alloc();
         smart_object_set_long(res, qskey(&__key_request_id__), smart_object_get_long(obj, qskey(&__key_request_id__), 0));
@@ -57,7 +58,7 @@ static void __response_invalid_data(struct es_server *p, int fd, struct smart_ob
         smart_object_set_long(res, qskey(&__key_error__), ERROR_DATA_INVALID);
 
         struct string *d        = smart_object_to_json(res);
-        es_server_send_to_client(p, fd, d->ptr, d->len);
+        es_server_send_to_client(p, fd, mask, d->ptr, d->len);
         string_free(d);
         smart_object_free(res);
 }
@@ -67,6 +68,7 @@ static size_t func(void *ptr, size_t size, size_t nmemb, struct write_data *data
         struct es_server *p = data->p;
         struct smart_object *obj = data->obj;
         int fd = data->fd;
+        u32 mask = data->mask;
 
         size_t realsize = size * nmemb;
 
@@ -80,21 +82,21 @@ static size_t func(void *ptr, size_t size, size_t nmemb, struct write_data *data
         smart_object_set_object(res, qskey(&__key_data__), result);
 
         struct string *d        = smart_object_to_json(res);
-        es_server_send_to_client(p, fd, d->ptr, d->len);
+        es_server_send_to_client(p, fd, mask, d->ptr, d->len);
         string_free(d);
         smart_object_free(res);
 
         return size * nmemb;
 }
 
-void es_server_process_delete_v1(struct es_server *p, int fd, struct smart_object *obj)
+void es_server_process_delete_v1(struct es_server *p, int fd, u32 mask, struct smart_object *obj)
 {
         debug("call delete\n");
         struct string *pass             = smart_object_get_string(obj, qskey(&__key_pass__), SMART_GET_REPLACE_IF_WRONG_TYPE);
         struct string *es_server_pass   = smart_object_get_string(p->config, qskey(&__key_pass__), SMART_GET_REPLACE_IF_WRONG_TYPE);
 
         if(strcmp(es_server_pass->ptr, pass->ptr) != 0) {
-                __response_invalid_data(p, fd, obj, qlkey("wrong password"));
+                __response_invalid_data(p, fd, mask, obj, qlkey("wrong password"));
                 goto end;
         }
 
@@ -120,6 +122,7 @@ void es_server_process_delete_v1(struct es_server *p, int fd, struct smart_objec
                 wdata.p = p;
                 wdata.obj = obj;
                 wdata.fd = fd;
+                wdata.mask = mask;
                 curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&wdata);
 
                 temp = smart_object_to_json(data);
