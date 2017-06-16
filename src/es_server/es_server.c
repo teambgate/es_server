@@ -164,13 +164,13 @@ void es_server_send_to_client(struct es_server *p, int fd, u32 mask, char *ptr, 
          * send packet len
          */
         u32 num                 = htonl((u32)len);
-        send(fd, &num, sizeof(num), 0);
+        send(fd, &num, sizeof(num), MSG_NOSIGNAL);
 
         /*
          * send packet content
          */
         while(bytes_send < slen) {
-                bytes_send += send(fd, ptr, len, 0);
+                bytes_send += send(fd, ptr, len, MSG_NOSIGNAL);
                 if(bytes_send < 0) {
                         break;
                 }
@@ -265,20 +265,6 @@ send_client:;
 
         }
         smart_object_free(obj);
-
-        // debug("force client closed\n");
-        //
-        // if(cb) {
-        //         __client_buffer_free(cb);
-        //         map_remove_key(ws->clients_datas, &fd, sizeof(fd));
-        // }
-        //
-        // shutdown(fd, SHUT_RDWR);
-        // socket_close(fd);
-        // file_descriptor_set_remove(ws->master, fd);
-        // debug("force close connection\n\n");
-
-        // goto check;
 end:;
 }
 
