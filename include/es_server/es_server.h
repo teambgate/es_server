@@ -15,6 +15,7 @@
 #define __ES_SERVER_ES_SERVER_H__
 
 #include <es_server/types.h>
+#include <common/types.h>
 
 struct es_server *es_server_alloc();
 
@@ -22,11 +23,11 @@ void es_server_start(struct es_server *p);
 
 void es_server_free(struct es_server *p);
 
-void es_server_send_to_client(struct es_server *p, int fd, u32 mask, char *ptr, int len);
+// void es_server_send_to_client(struct es_server *p, int fd, u32 mask, char *ptr, int len, u8 keep);
 
-void es_server_process_get(struct es_server *p, int fd, u32 mask, struct smart_object *obj);
-void es_server_process_post(struct es_server *p, int fd, u32 mask, struct smart_object *obj);
-void es_server_process_put(struct es_server *p, int fd, u32 mask, struct smart_object *obj);
-void es_server_process_delete(struct es_server *p, int fd, u32 mask, struct smart_object *obj);
+void es_server_process_get(struct cs_server *p, int fd, u32 mask, struct smart_object *obj);
+void es_server_process_post(struct cs_server *p, int fd, u32 mask, struct smart_object *obj);
+void es_server_process_put(struct cs_server *p, int fd, u32 mask, struct smart_object *obj);
+void es_server_process_delete(struct cs_server *p, int fd, u32 mask, struct smart_object *obj);
 
 #endif

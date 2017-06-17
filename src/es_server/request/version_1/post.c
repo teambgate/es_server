@@ -39,17 +39,18 @@
 #include <common/command.h>
 #include <common/key.h>
 #include <common/error.h>
+#include <common/cs_server.h>
 
 #include <curl/curl.h>
 
 struct write_data {
-        struct es_server *p;
+        struct cs_server *p;
         struct smart_object *obj;
         int fd;
         u32 mask;
 };
 
-static void __response_invalid_data(struct es_server *p, int fd, u32 mask, struct smart_object *obj, char *msg, size_t msg_len)
+static void __response_invalid_data(struct cs_server *p, int fd, u32 mask, struct smart_object *obj, char *msg, size_t msg_len)
 {
         struct smart_object *res = smart_object_alloc();
         smart_object_set_long(res, qskey(&__key_request_id__), smart_object_get_long(obj, qskey(&__key_request_id__), 0));
@@ -58,14 +59,14 @@ static void __response_invalid_data(struct es_server *p, int fd, u32 mask, struc
         smart_object_set_long(res, qskey(&__key_error__), ERROR_DATA_INVALID);
 
         struct string *d        = smart_object_to_json(res);
-        es_server_send_to_client(p, fd, mask, d->ptr, d->len);
+        cs_server_send_to_client(p, fd, mask, d->ptr, d->len, 0);
         string_free(d);
         smart_object_free(res);
 }
 
 static size_t func(void *ptr, size_t size, size_t nmemb, struct write_data *data)
 {
-        struct es_server *p = data->p;
+        struct cs_server *p = data->p;
         struct smart_object *obj = data->obj;
         int fd = data->fd;
         u32 mask = data->mask;
@@ -82,14 +83,14 @@ static size_t func(void *ptr, size_t size, size_t nmemb, struct write_data *data
         smart_object_set_object(res, qskey(&__key_data__), result);
 
         struct string *d        = smart_object_to_json(res);
-        es_server_send_to_client(p, fd, mask, d->ptr, d->len);
+        cs_server_send_to_client(p, fd, mask, d->ptr, d->len, 0);
         string_free(d);
         smart_object_free(res);
 
         return size * nmemb;
 }
 
-void es_server_process_post_v1(struct es_server *p, int fd, u32 mask, struct smart_object *obj)
+void es_server_process_post_v1(struct cs_server *p, int fd, u32 mask, struct smart_object *obj)
 {
         struct string *pass             = smart_object_get_string(obj, qskey(&__key_pass__), SMART_GET_REPLACE_IF_WRONG_TYPE);
         struct string *es_server_pass   = smart_object_get_string(p->config, qskey(&__key_pass__), SMART_GET_REPLACE_IF_WRONG_TYPE);

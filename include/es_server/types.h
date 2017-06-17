@@ -18,37 +18,41 @@
 #include <smartfox/types.h>
 #include <pthread.h>
 
-struct es_server;
-
-typedef void(*es_server_delegate)(struct es_server *, int fd, u32 mask, struct smart_object *);
-
-struct client_buffer {
-        struct string   *buff;
-        u32             requested_len;
-};
-
-struct client_step {
-        int fd;
-        u64 step;
-};
-
 struct es_server {
-        struct file_descriptor_set      *master;
-        struct file_descriptor_set      *incomming;
-        int                             fdmax;
-        int                             listener;
-
-        struct array                    *fd_mask;
-
-        struct array                    *fd_invalids;
-
-        pthread_mutex_t                 client_data_mutex;
-
-        u64                             step;
-
-        struct smart_object             *config;
-        struct map                      *delegates;
-        struct map                      *clients_datas;
+        struct list_head server;
 };
+
+// struct es_server;
+//
+// typedef void(*es_server_delegate)(struct es_server *, int fd, u32 mask, struct smart_object *);
+//
+// struct client_buffer {
+//         struct string   *buff;
+//         u32             requested_len;
+// };
+//
+// struct client_step {
+//         int fd;
+//         u64 step;
+// };
+//
+// struct es_server {
+//         struct file_descriptor_set      *master;
+//         struct file_descriptor_set      *incomming;
+//         int                             fdmax;
+//         int                             listener;
+//
+//         struct array                    *fd_mask;
+//
+//         struct array                    *fd_invalids;
+//
+//         pthread_mutex_t                 client_data_mutex;
+//
+//         u64                             step;
+//
+//         struct smart_object             *config;
+//         struct map                      *delegates;
+//         struct map                      *clients_datas;
+// };
 
 #endif
