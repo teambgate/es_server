@@ -140,9 +140,11 @@ void es_server_process_post_v1(struct cs_server *p, int fd, u32 mask, struct sma
                 /* Perform the request, res will get the return code */
                 res = curl_easy_perform(curl);
                 /* Check for errors */
-                if(res != CURLE_OK)
+                if(res != CURLE_OK) {
                         fprintf(stderr, "curl_easy_perform() failed: %s\n",
                                 curl_easy_strerror(res));
+                        __response_invalid_data(p, fd, mask, obj, qlkey("database error"));
+                }
 
                 /* always cleanup */
                 curl_slist_free_all(headers);
