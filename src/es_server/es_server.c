@@ -26,7 +26,7 @@ struct es_server *es_server_alloc()
         struct es_server *p     = smalloc(sizeof(struct es_server));
         INIT_LIST_HEAD(&p->server);
 
-        struct cs_server *c     = cs_server_alloc();
+        struct cs_server *c     = cs_server_alloc(0);
         list_add_tail(&c->user_head, &p->server);
 
         c->config               = smart_object_from_json_file("res/config.json", FILE_INNER);
