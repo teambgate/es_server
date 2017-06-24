@@ -57,6 +57,8 @@ static void __response_invalid_data(struct cs_server *p, int fd, u32 mask, struc
         smart_object_set_bool(res, qskey(&__key_result__), 0);
         smart_object_set_string(res, qskey(&__key_message__), msg, msg_len);
         smart_object_set_long(res, qskey(&__key_error__), ERROR_DATA_INVALID);
+        struct string *cmd = smart_object_get_string(obj, qskey(&__key_cmd__), SMART_GET_REPLACE_IF_WRONG_TYPE);
+        smart_object_set_string(res, qskey(&__key_cmd__), qskey(cmd));
 
         struct string *d        = smart_object_to_json(res);
         cs_server_send_to_client(p, fd, mask, d->ptr, d->len, 0);
@@ -77,6 +79,8 @@ static size_t func(void *ptr, size_t size, size_t nmemb, struct write_data *data
         smart_object_set_long(res, qskey(&__key_request_id__), smart_object_get_long(obj, qskey(&__key_request_id__), 0));
         smart_object_set_bool(res, qskey(&__key_result__), 1);
         smart_object_set_string(res, qskey(&__key_message__), qlkey("success"));
+        struct string *cmd = smart_object_get_string(obj, qskey(&__key_cmd__), SMART_GET_REPLACE_IF_WRONG_TYPE);
+        smart_object_set_string(res, qskey(&__key_cmd__), qskey(cmd));
 
         int counter = 0;
         struct smart_object *result = smart_object_from_json(ptr, realsize, &counter);
