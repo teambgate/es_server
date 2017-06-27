@@ -23,7 +23,7 @@
 
 struct es_server *es_server_alloc()
 {
-        struct es_server *p     = smalloc(sizeof(struct es_server));
+        struct es_server *p     = smalloc(sizeof(struct es_server), es_server_free);
         INIT_LIST_HEAD(&p->server);
 
         struct cs_server *c     = cs_server_alloc(0);
