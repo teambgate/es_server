@@ -42,6 +42,8 @@ include_directories(../checking_service/common/include)
 include_directories(include)
 include_directories(/usr/include/curl)
 
+add_definitions(-Wno-incompatible-pointer-types)
+
 if(MACOSX)
         file(GLOB_RECURSE SOURCES "src/*.c" "src/*.m" "../checking_service/common/src/*.c")
 else()
