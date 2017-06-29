@@ -45,67 +45,67 @@
 
 struct write_data {
         struct cs_server *p;
-        struct smart_object *obj;
+        struct sobj *obj;
         int fd;
         u32 mask;
 };
 
-static void __response_invalid_data(struct cs_server *p, int fd, u32 mask, struct smart_object *obj, char *msg, size_t msg_len)
+static void __response_invalid_data(struct cs_server *p, int fd, u32 mask, struct sobj *obj, char *msg, size_t msg_len)
 {
-        struct smart_object *res = smart_object_alloc();
-        smart_object_set_long(res, qskey(&__key_request_id__), smart_object_get_long(obj, qskey(&__key_request_id__), 0));
-        smart_object_set_bool(res, qskey(&__key_result__), 0);
-        smart_object_set_string(res, qskey(&__key_message__), msg, msg_len);
-        smart_object_set_long(res, qskey(&__key_error__), ERROR_DATA_INVALID);
-        struct string *cmd = smart_object_get_string(obj, qskey(&__key_cmd__), SMART_GET_REPLACE_IF_WRONG_TYPE);
-        smart_object_set_string(res, qskey(&__key_cmd__), qskey(cmd));
+        struct sobj *res = sobj_alloc();
+        sobj_set_i64(res, qskey(&__key_request_id__), sobj_get_i64(obj, qskey(&__key_request_id__), 0));
+        sobj_set_u8(res, qskey(&__key_result__), 0);
+        sobj_set_str(res, qskey(&__key_message__), msg, msg_len);
+        sobj_set_i64(res, qskey(&__key_error__), ERROR_DATA_INVALID);
+        struct string *cmd = sobj_get_str(obj, qskey(&__key_cmd__), RPL_TYPE);
+        sobj_set_str(res, qskey(&__key_cmd__), qskey(cmd));
 
-        struct string *d        = smart_object_to_json(res);
+        struct string *d        = sobj_to_json(res);
         cs_server_send_to_client(p, fd, mask, d->ptr, d->len, 0);
         string_free(d);
-        smart_object_free(res);
+        sobj_free(res);
 }
 
 static size_t func(void *ptr, size_t size, size_t nmemb, struct write_data *data)
 {
         struct cs_server *p = data->p;
-        struct smart_object *obj = data->obj;
+        struct sobj *obj = data->obj;
         int fd = data->fd;
         u32 mask = data->mask;
 
         size_t realsize = size * nmemb;
 
-        struct smart_object *res = smart_object_alloc();
-        smart_object_set_long(res, qskey(&__key_request_id__), smart_object_get_long(obj, qskey(&__key_request_id__), 0));
-        smart_object_set_bool(res, qskey(&__key_result__), 1);
-        smart_object_set_string(res, qskey(&__key_message__), qlkey("success"));
-        struct string *cmd = smart_object_get_string(obj, qskey(&__key_cmd__), SMART_GET_REPLACE_IF_WRONG_TYPE);
-        smart_object_set_string(res, qskey(&__key_cmd__), qskey(cmd));
+        struct sobj *res = sobj_alloc();
+        sobj_set_i64(res, qskey(&__key_request_id__), sobj_get_i64(obj, qskey(&__key_request_id__), 0));
+        sobj_set_u8(res, qskey(&__key_result__), 1);
+        sobj_set_str(res, qskey(&__key_message__), qlkey("success"));
+        struct string *cmd = sobj_get_str(obj, qskey(&__key_cmd__), RPL_TYPE);
+        sobj_set_str(res, qskey(&__key_cmd__), qskey(cmd));
 
         int counter = 0;
-        struct smart_object *result = smart_object_from_json(ptr, realsize, &counter);
-        smart_object_set_object(res, qskey(&__key_data__), result);
+        struct sobj *result = sobj_from_json(ptr, realsize, &counter);
+        sobj_set_obj(res, qskey(&__key_data__), result);
 
-        struct string *d        = smart_object_to_json(res);
+        struct string *d        = sobj_to_json(res);
         cs_server_send_to_client(p, fd, mask, d->ptr, d->len, 0);
         string_free(d);
-        smart_object_free(res);
+        sobj_free(res);
 
         return size * nmemb;
 }
 
-void es_server_process_post_v1(struct cs_server *p, int fd, u32 mask, struct smart_object *obj)
+void es_server_process_post_v1(struct cs_server *p, int fd, u32 mask, struct sobj *obj)
 {
-        struct string *pass             = smart_object_get_string(obj, qskey(&__key_pass__), SMART_GET_REPLACE_IF_WRONG_TYPE);
-        struct string *es_server_pass   = smart_object_get_string(p->config, qskey(&__key_pass__), SMART_GET_REPLACE_IF_WRONG_TYPE);
+        struct string *pass             = sobj_get_str(obj, qskey(&__key_pass__), RPL_TYPE);
+        struct string *es_server_pass   = sobj_get_str(p->config, qskey(&__key_pass__), RPL_TYPE);
 
         if(strcmp(es_server_pass->ptr, pass->ptr) != 0) {
                 __response_invalid_data(p, fd, mask, obj, qlkey("wrong password"));
                 goto end;
         }
 
-        struct string *path             = smart_object_get_string(obj, qskey(&__key_path__), SMART_GET_REPLACE_IF_WRONG_TYPE);
-        struct smart_object *data         = smart_object_get_object(obj, qskey(&__key_data__), SMART_GET_REPLACE_IF_WRONG_TYPE);
+        struct string *path             = sobj_get_str(obj, qskey(&__key_path__), RPL_TYPE);
+        struct sobj *data         = sobj_get_obj(obj, qskey(&__key_data__), RPL_TYPE);
 
         CURL *curl;
         CURLcode res;
@@ -129,7 +129,7 @@ void es_server_process_post_v1(struct cs_server *p, int fd, u32 mask, struct sma
                 wdata.mask = mask;
                 curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&wdata);
 
-                temp = smart_object_to_json(data);
+                temp = sobj_to_json(data);
 
                 struct curl_slist *headers = NULL;
                 curl_slist_append(headers, "Accept: application/json");

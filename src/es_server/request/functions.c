@@ -25,31 +25,31 @@
 #include <common/error.h>
 #include <common/cs_server.h>
 
-static void __response_invalid_version(struct cs_server *p, int fd, u32 mask, struct smart_object *obj)
+static void __response_invalid_version(struct cs_server *p, int fd, u32 mask, struct sobj *obj)
 {
-        struct smart_object *res = smart_object_alloc();
-        smart_object_set_long(res, qskey(&__key_request_id__), smart_object_get_long(obj, qskey(&__key_request_id__), 0));
-        smart_object_set_bool(res, qskey(&__key_result__), 0);
-        smart_object_set_string(res, qskey(&__key_message__), qlkey(""));
-        smart_object_set_long(res, qskey(&__key_error__), ERROR_VERSION_INVALID);
-        struct string *cmd = smart_object_get_string(obj, qskey(&__key_cmd__), SMART_GET_REPLACE_IF_WRONG_TYPE);
-        smart_object_set_string(res, qskey(&__key_cmd__), qskey(cmd));
+        struct sobj *res = sobj_alloc();
+        sobj_set_i64(res, qskey(&__key_request_id__), sobj_get_i64(obj, qskey(&__key_request_id__), 0));
+        sobj_set_u8(res, qskey(&__key_result__), 0);
+        sobj_set_str(res, qskey(&__key_message__), qlkey(""));
+        sobj_set_i64(res, qskey(&__key_error__), ERROR_VERSION_INVALID);
+        struct string *cmd = sobj_get_str(obj, qskey(&__key_cmd__), RPL_TYPE);
+        sobj_set_str(res, qskey(&__key_cmd__), qskey(cmd));
 
-        struct string *d        = smart_object_to_json(res);
+        struct string *d        = sobj_to_json(res);
         cs_server_send_to_client(p, fd, mask, d->ptr, d->len, 0);
         string_free(d);
-        smart_object_free(res);
+        sobj_free(res);
 }
 
 #define register_function(func)                                                                 \
-void func(struct cs_server *p, int fd, u32 mask, struct smart_object *obj)                      \
+void func(struct cs_server *p, int fd, u32 mask, struct sobj *obj)                      \
 {                                                                                               \
         if(!map_has_key(obj->data, qskey(&__key_version__))) {                                  \
                 __response_invalid_version(p, fd, mask, obj);                                         \
                 return;                                                                         \
         }                                                                                       \
                                                                                                 \
-        struct string *version = smart_object_get_string(obj, qskey(&__key_version__), 0);        \
+        struct string *version = sobj_get_str(obj, qskey(&__key_version__), 0);        \
                                                                                                 \
         if(strcmp(version->ptr, "1") == 0) {                                                    \
                 func##_v1(p, fd, mask, obj);                                                          \

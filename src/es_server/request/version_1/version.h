@@ -16,9 +16,9 @@
 
 #include <es_server/types.h>
 
-void es_server_process_get_v1(struct cs_server *p, int fd, u32 mask, struct smart_object *obj);
-void es_server_process_post_v1(struct cs_server *p, int fd, u32 mask, struct smart_object *obj);
-void es_server_process_put_v1(struct cs_server *p, int fd, u32 mask, struct smart_object *obj);
-void es_server_process_delete_v1(struct cs_server *p, int fd, u32 mask, struct smart_object *obj);
+void es_server_process_get_v1(struct cs_server *p, int fd, u32 mask, struct sobj *obj);
+void es_server_process_post_v1(struct cs_server *p, int fd, u32 mask, struct sobj *obj);
+void es_server_process_put_v1(struct cs_server *p, int fd, u32 mask, struct sobj *obj);
+void es_server_process_delete_v1(struct cs_server *p, int fd, u32 mask, struct sobj *obj);
 
 #endif

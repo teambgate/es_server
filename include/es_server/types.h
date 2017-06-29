@@ -24,7 +24,7 @@ struct es_server {
 
 // struct es_server;
 //
-// typedef void(*es_server_delegate)(struct es_server *, int fd, u32 mask, struct smart_object *);
+// typedef void(*es_server_delegate)(struct es_server *, int fd, u32 mask, struct sobj *);
 //
 // struct client_buffer {
 //         struct string   *buff;
@@ -50,7 +50,7 @@ struct es_server {
 //
 //         u64                             step;
 //
-//         struct smart_object             *config;
+//         struct sobj             *config;
 //         struct map                      *delegates;
 //         struct map                      *clients_datas;
 // };

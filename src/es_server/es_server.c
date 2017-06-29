@@ -29,7 +29,7 @@ struct es_server *es_server_alloc()
         struct cs_server *c     = cs_server_alloc(0);
         list_add_tail(&c->user_head, &p->server);
 
-        c->config               = smart_object_from_json_file("res/config.json", FILE_INNER);
+        c->config               = sobj_from_json_file("res/config.json", FILE_INNER);
 
         map_set(c->delegates, qskey(&__cmd_get__), &(cs_server_delegate){es_server_process_get});
         map_set(c->delegates, qskey(&__cmd_post__), &(cs_server_delegate){es_server_process_post});
@@ -44,7 +44,7 @@ void es_server_start(struct es_server *p)
         if(!list_singular(&p->server)) {
                 struct cs_server *c     = (struct cs_server *)
                         ((char *)p->server.next - offsetof(struct cs_server, user_head));
-                u16 port                = smart_object_get_short(c->config, qlkey("service_port"), SMART_GET_REPLACE_IF_WRONG_TYPE);
+                u16 port                = sobj_get_i16(c->config, qlkey("service_port"), RPL_TYPE);
 
                 cs_server_start(c, port);
         }
